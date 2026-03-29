@@ -498,6 +498,7 @@ export async function executeSwap(
           feedbackTxHash: result.feedbackTxHash,
           model: judgeModel,
           warnings: result.warnings,
+          filecoinCids: result.filecoinCids,
         };
         if (result.usage) judgeResult.usage = result.usage;
         logAction("judge_completed", {
@@ -634,6 +635,7 @@ export async function executeSwap(
           feedbackTxHash: failureResult.feedbackTxHash,
           model: failureJudgeModel,
           warnings: failureResult.warnings,
+          filecoinCids: failureResult.filecoinCids,
         };
         if (failureResult.usage) failureJudgeResult.usage = failureResult.usage;
         logAction("judge_completed", {

@@ -94,6 +94,8 @@ export interface JudgeResult {
   warnings: string[];
   /** LLM token usage from the judge evaluation call */
   usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
+  /** Filecoin CIDs from evidence pinning (empty if all pins failed) */
+  filecoinCids: string[];
 }
 
 function toCamelCase(tag: string): string {
@@ -114,10 +116,12 @@ export async function evaluateSwap(
 
   // 1. Build & store evidence
   const evidence = buildSwapEvidence(input);
-  const { hash: requestHash, url: requestURI } = await storeEvidence(
+  const filecoinCids: string[] = [];
+  const { hash: requestHash, url: requestURI, filecoinCid: reqCid } = await storeEvidence(
     input.intentId,
     evidence,
   );
+  if (reqCid) filecoinCids.push(reqCid);
 
   logger.info(
     { intentId: input.intentId, cycle: input.cycle, requestHash },
@@ -207,10 +211,11 @@ export async function evaluateSwap(
       model: budgetCritical ? FAST_MODEL : REASONING_MODEL,
       evaluatedAt: new Date().toISOString(),
     };
-    const { hash: responseHash, url: responseURI } = await storeEvidence(
+    const { hash: responseHash, url: responseURI, filecoinCid: respCid } = await storeEvidence(
       input.intentId,
       responseDoc,
     );
+    if (respCid) filecoinCids.push(respCid);
 
     try {
       const txHash = await submitValidationResponse(
@@ -248,10 +253,11 @@ export async function evaluateSwap(
     swapTxHash: input.swapTxHash,
     timestamp: new Date().toISOString(),
   };
-  const { hash: feedbackHash, url: feedbackURI } = await storeEvidence(
+  const { hash: feedbackHash, url: feedbackURI, filecoinCid: fbCid } = await storeEvidence(
     input.intentId,
     feedbackDoc,
   );
+  if (fbCid) filecoinCids.push(fbCid);
 
   let feedbackTxHash: Hex = "0x0" as Hex;
   try {
@@ -294,6 +300,7 @@ export async function evaluateSwap(
     feedbackTxHash,
     warnings,
     usage: llmUsage,
+    filecoinCids,
   };
 }
 
@@ -317,10 +324,12 @@ export async function evaluateSwapFailure(
 
   // 1. Build & store failure evidence
   const evidence = buildSwapFailureEvidence(input);
-  const { hash: requestHash, url: requestURI } = await storeEvidence(
+  const filecoinCids: string[] = [];
+  const { hash: requestHash, url: requestURI, filecoinCid: reqCid } = await storeEvidence(
     input.intentId,
     evidence,
   );
+  if (reqCid) filecoinCids.push(reqCid);
 
   logger.info(
     { intentId: input.intentId, cycle: input.cycle, requestHash },
@@ -411,10 +420,11 @@ export async function evaluateSwapFailure(
       model: budgetCritical ? FAST_MODEL : REASONING_MODEL,
       evaluatedAt: new Date().toISOString(),
     };
-    const { hash: responseHash, url: responseURI } = await storeEvidence(
+    const { hash: responseHash, url: responseURI, filecoinCid: respCid } = await storeEvidence(
       input.intentId,
       responseDoc,
     );
+    if (respCid) filecoinCids.push(respCid);
 
     try {
       const txHash = await submitValidationResponse(
@@ -453,10 +463,11 @@ export async function evaluateSwapFailure(
     errorMessage: input.errorMessage,
     timestamp: new Date().toISOString(),
   };
-  const { hash: feedbackHash, url: feedbackURI } = await storeEvidence(
+  const { hash: feedbackHash, url: feedbackURI, filecoinCid: fbCid } = await storeEvidence(
     input.intentId,
     feedbackDoc,
   );
+  if (fbCid) filecoinCids.push(fbCid);
 
   let feedbackTxHash: Hex = "0x0" as Hex;
   try {
@@ -499,5 +510,6 @@ export async function evaluateSwapFailure(
     feedbackTxHash,
     warnings,
     usage: llmUsage,
+    filecoinCids,
   };
 }

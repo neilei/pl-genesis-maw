@@ -119,6 +119,29 @@ app.get("/api/intents/:id/avatar.webp", (c) => {
 // Filecoin artifacts for an intent (public)
 const FILECOIN_GATEWAY = "https://calibration.w3s.link/ipfs";
 
+/** Extract unique Filecoin CIDs from the intent JSONL log (judge_completed entries). */
+function getFilecoinCidsFromLog(intentId: string): string[] {
+  const logPath = join("data/logs", `${intentId}.jsonl`);
+  try {
+    const lines = readFileSync(logPath, "utf-8").split("\n").filter(Boolean);
+    const cids = new Set<string>();
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+        const rc = entry.result?.filecoinCids;
+        if (Array.isArray(rc)) {
+          for (const cid of rc) {
+            if (typeof cid === "string" && cid.length > 0) cids.add(cid);
+          }
+        }
+      } catch { /* skip malformed lines */ }
+    }
+    return [...cids];
+  } catch {
+    return [];
+  }
+}
+
 app.get("/api/intents/:id/filecoin", (c) => {
   const intentId = c.req.param("id");
   if (!/^[a-zA-Z0-9_-]+$/.test(intentId)) {
@@ -129,14 +152,25 @@ app.get("/api/intents/:id/filecoin", (c) => {
     return c.json({ error: "Intent not found" }, 404);
   }
 
+  // Collect CIDs from DB (swap records) and from intent JSONL log
   const swapRecords = repo.getSwapsByIntent(intentId);
-  const evidence = swapRecords
+  const dbEvidence = swapRecords
     .filter((s) => s.evidenceCid)
     .map((s) => ({
       swapTxHash: s.txHash,
       rootCid: s.evidenceCid,
       gatewayUrl: `${FILECOIN_GATEWAY}/${s.evidenceCid}`,
     }));
+
+  const logCids = getFilecoinCidsFromLog(intentId);
+  const logEvidence = logCids.map((cid) => ({
+    rootCid: cid,
+    gatewayUrl: `${FILECOIN_GATEWAY}/${cid}`,
+  }));
+
+  // Merge: DB evidence first, then log-only CIDs (deduplicated)
+  const seenCids = new Set(dbEvidence.map((e) => e.rootCid));
+  const uniqueLogEvidence = logEvidence.filter((e) => !seenCids.has(e.rootCid));
 
   return c.json({
     intentId,
@@ -146,7 +180,7 @@ app.get("/api/intents/:id/filecoin", (c) => {
           gatewayUrl: `${FILECOIN_GATEWAY}/${intent.avatarCid}`,
         }
       : null,
-    evidence,
+    evidence: [...dbEvidence, ...uniqueLogEvidence],
   });
 });
 

@@ -424,12 +424,12 @@ export async function runAgentLoop(config: AgentConfig): Promise<AgentState> {
           logAction("judge_completed", {
             cycle: state.cycle,
             tool: "venice-judge",
-            result: { outcome: "cycle_error", composite: judgeResult.composite, scores: judgeResult.scores, model: judgeModel },
+            result: { outcome: "cycle_error", composite: judgeResult.composite, scores: judgeResult.scores, model: judgeModel, filecoinCids: judgeResult.filecoinCids },
           });
           config.intentLogger?.log("judge_completed", {
             cycle: state.cycle,
             tool: "venice-judge",
-            result: { outcome: "cycle_error", composite: judgeResult.composite, scores: judgeResult.scores, model: judgeModel },
+            result: { outcome: "cycle_error", composite: judgeResult.composite, scores: judgeResult.scores, model: judgeModel, filecoinCids: judgeResult.filecoinCids },
           });
         } catch (judgeErr) {
           logger.warn({ err: judgeErr }, "Judge evaluation for cycle error failed");
