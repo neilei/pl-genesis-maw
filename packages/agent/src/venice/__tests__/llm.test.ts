@@ -66,9 +66,9 @@ describe("Venice LLM configuration", () => {
     expect(kwargs.venice_parameters.disable_thinking).toBe(false);
   });
 
-  it("reasoning LLM uses gemini-3-flash-preview with web scraping disabled", () => {
+  it("reasoning LLM uses qwen3-5-9b with web scraping disabled", () => {
     const reasoning = constructorCalls[2]!;
-    expect(reasoning.model).toBe("gemini-3-flash-preview");
+    expect(reasoning.model).toBe("qwen3-5-9b");
     expect(reasoning.temperature).toBe(0);
 
     const kwargs = reasoning.modelKwargs as { venice_parameters: Record<string, unknown> };

@@ -789,7 +789,7 @@ export async function startFromCli(
     intent,
     agentKey: env.AGENT_PRIVATE_KEY,
     chainId: 11155111,
-    intervalMs: 60_000,
+    intervalMs: 300_000,
     permissions: [],
     delegationManager: "",
     dependencies: [],

@@ -1,6 +1,6 @@
 /**
  * Venice AI LLM instances via LangChain. Three tiers: fast (qwen3-5-9b),
- * research (qwen3-5-9b with web search), reasoning (gemini-3-flash-preview).
+ * research (qwen3-5-9b with web search), reasoning (qwen3-5-9b).
  * Custom fetch wrapper captures billing headers for budget tracking.
  *
  * @module @maw/agent/venice/llm
@@ -96,7 +96,7 @@ const override = env.VENICE_MODEL_OVERRIDE;
 // Model IDs — exported so log entries can reference the actual model in use
 export const FAST_MODEL = override ?? "qwen3-5-9b";
 export const RESEARCH_MODEL = override ?? "qwen3-5-9b";
-export const REASONING_MODEL = override ?? "gemini-3-flash-preview";
+export const REASONING_MODEL = override ?? "qwen3-5-9b";
 
 // Fast: quick lookups, balance checks, simple parsing
 export const fastLlm = getVeniceLlm({
