@@ -73,19 +73,34 @@ async function pinWithRetry(
 async function uploadPath(filePath: string): Promise<PinResult> {
   const synapse = await getSynapse();
   const fp = await import("filecoin-pin");
+  const payments = await import("filecoin-pin/core/payments");
 
   const fileSize = statSync(filePath).size;
 
-  // Cast synapse through Parameters<> since the Synapse type is transitive
-  // (from @filoz/synapse-sdk, not directly importable).
-  type ReadinessOpts = Parameters<typeof fp.checkUploadReadiness>[0];
-  const readiness = await fp.checkUploadReadiness({
+  // Auto-fund: plan and execute USDFC deposit into FilecoinPay contract.
+  // checkUploadReadiness alone fails when USDFC is in the wallet but not
+  // yet deposited — planFilecoinPayFunding + executeFilecoinPayFunding
+  // handle both allowance setup and deposit in one shot.
+  type SynapseParam = Parameters<typeof fp.executeUpload>[0];
+  type PlanOpts = Parameters<typeof payments.planFilecoinPayFunding>[0];
+  const planResult = await payments.planFilecoinPayFunding({
     synapse,
-    fileSize,
-    autoConfigureAllowances: true,
-  } as ReadinessOpts);
-  if (readiness.status === "blocked") {
-    throw new Error(`Upload blocked: ${readiness.validation.errorMessage ?? "insufficient funds"}`);
+    targetRunwayDays: 30,
+    pieceSizeBytes: fileSize,
+    ensureAllowances: true,
+    allowWithdraw: false,
+  } as PlanOpts);
+
+  if (planResult.plan.delta > 0n) {
+    logger.info(
+      { delta: planResult.plan.delta.toString(), fileSize },
+      "Auto-depositing USDFC into FilecoinPay for upload",
+    );
+    await payments.executeFilecoinPayFunding(
+      synapse as SynapseParam,
+      planResult.plan,
+    );
+    logger.info("USDFC deposit complete");
   }
 
   // Create CAR from file
@@ -99,7 +114,6 @@ async function uploadPath(filePath: string): Promise<PinResult> {
     let capturedDataSetId = 0;
 
     type UploadOpts = Parameters<typeof fp.executeUpload>[3];
-    type SynapseParam = Parameters<typeof fp.executeUpload>[0];
     const result = await fp.executeUpload(
       synapse as SynapseParam,
       carData,

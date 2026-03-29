@@ -12,10 +12,6 @@ vi.mock("../../logging/logger.js", () => ({
 
 // Mock filecoin-pin to avoid network calls
 const mockInitializeSynapse = vi.fn().mockResolvedValue({ mock: true });
-const mockCheckUploadReadiness = vi.fn().mockResolvedValue({
-  status: "ready",
-  validation: { isValid: true },
-});
 const mockCreateCarFromPath = vi.fn().mockResolvedValue({
   carPath: "/tmp/test.car",
   rootCid: { toString: () => "bafytest123" },
@@ -37,12 +33,29 @@ const mockExecuteUpload = vi.fn().mockImplementation(
 
 vi.mock("filecoin-pin", () => ({
   initializeSynapse: mockInitializeSynapse,
-  checkUploadReadiness: mockCheckUploadReadiness,
   createCarFromPath: mockCreateCarFromPath,
   executeUpload: mockExecuteUpload,
 }));
 vi.mock("filecoin-pin/core/synapse", () => ({
   calibration: { id: 314159, name: "calibration" },
+}));
+
+// Mock filecoin-pin/core/payments — planFilecoinPayFunding + executeFilecoinPayFunding
+const mockPlanFilecoinPayFunding = vi.fn().mockResolvedValue({
+  plan: { delta: 0n, projected: { depositedBalance: 100n, runway: { days: 30, hours: 0 } } },
+  status: { walletUsdfcBalance: 100n },
+  allowances: { updated: false },
+});
+const mockExecuteFilecoinPayFunding = vi.fn().mockResolvedValue({
+  adjusted: true,
+  delta: 100n,
+  newDepositedAmount: 100n,
+  newRunwayDays: 30,
+  newRunwayHours: 0,
+});
+vi.mock("filecoin-pin/core/payments", () => ({
+  planFilecoinPayFunding: mockPlanFilecoinPayFunding,
+  executeFilecoinPayFunding: mockExecuteFilecoinPayFunding,
 }));
 
 vi.mock("node:fs", async () => {
@@ -60,13 +73,15 @@ vi.mock("node:fs", async () => {
 beforeEach(() => {
   vi.resetModules();
   mockInitializeSynapse.mockClear();
-  mockCheckUploadReadiness.mockClear();
   mockCreateCarFromPath.mockClear();
   mockExecuteUpload.mockClear();
-  // Restore default mock behavior
-  mockCheckUploadReadiness.mockResolvedValue({
-    status: "ready",
-    validation: { isValid: true },
+  mockPlanFilecoinPayFunding.mockClear();
+  mockExecuteFilecoinPayFunding.mockClear();
+  // Restore default: no deposit needed
+  mockPlanFilecoinPayFunding.mockResolvedValue({
+    plan: { delta: 0n, projected: { depositedBalance: 100n, runway: { days: 30, hours: 0 } } },
+    status: { walletUsdfcBalance: 100n },
+    allowances: { updated: false },
   });
 });
 
@@ -98,16 +113,33 @@ describe("Filecoin Pin", () => {
     expect(result.pieceCid).toBe("baga-piece-test");
   });
 
-  it("throws when upload readiness is blocked", { timeout: 15_000 }, async () => {
-    mockCheckUploadReadiness.mockResolvedValue({
-      status: "blocked",
-      validation: { isValid: false, errorMessage: "insufficient USDFC" },
+  it("auto-deposits USDFC when plan.delta > 0", async () => {
+    mockPlanFilecoinPayFunding.mockResolvedValue({
+      plan: { delta: 500n, projected: { depositedBalance: 500n, runway: { days: 30, hours: 0 } } },
+      status: { walletUsdfcBalance: 500n },
+      allowances: { updated: true },
     });
+
+    const { pinFile } = await import("../pin.js");
+
+    const result = await pinFile("/tmp/test.webp", {
+      intentId: "test",
+      artifactType: "avatar",
+    });
+
+    expect(mockExecuteFilecoinPayFunding).toHaveBeenCalledOnce();
+    expect(result.rootCid).toBe("bafytest123");
+  });
+
+  it("throws when planFilecoinPayFunding fails", { timeout: 15_000 }, async () => {
+    mockPlanFilecoinPayFunding.mockRejectedValue(
+      new Error("Insufficient USDFC in wallet"),
+    );
 
     const { pinFile } = await import("../pin.js");
 
     await expect(
       pinFile("/tmp/test.webp", { intentId: "test", artifactType: "avatar" }),
-    ).rejects.toThrow("Upload blocked: insufficient USDFC");
+    ).rejects.toThrow("Insufficient USDFC in wallet");
   });
 });

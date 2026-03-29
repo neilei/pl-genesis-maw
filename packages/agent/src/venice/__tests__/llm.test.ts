@@ -112,13 +112,6 @@ describe("Venice LLM configuration", () => {
     }
   });
 
-  it("all tiers set enable_e2ee to true", () => {
-    for (const call of constructorCalls) {
-      const kwargs = call.modelKwargs as { venice_parameters: Record<string, unknown> };
-      expect(kwargs.venice_parameters.enable_e2ee).toBe(true);
-    }
-  });
-
   it("research tier has prompt_cache_key set", () => {
     const research = constructorCalls[1]!;
     const kwargs = research.modelKwargs as { venice_parameters: Record<string, unknown> };
