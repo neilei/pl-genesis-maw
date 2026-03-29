@@ -41,7 +41,7 @@ vi.mock("../identity/judge.js", () => ({
 }));
 vi.mock("../identity/evidence.js", () => ({
   buildSwapEvidence: vi.fn(),
-  storeEvidence: vi.fn(),
+  storeEvidence: vi.fn().mockResolvedValue({ hash: "0xmock", filePath: "mock", url: "mock" }),
 }));
 vi.mock("../logging/logger.js", () => ({
   logger: {

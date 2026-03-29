@@ -28,7 +28,8 @@ const CREATE_TABLES_SQL = `
     trades_executed INTEGER NOT NULL DEFAULT 0,
     total_spent_usd REAL NOT NULL DEFAULT 0,
     last_cycle_at INTEGER,
-    agent_id TEXT
+    agent_id TEXT,
+    avatar_cid TEXT
   );
   CREATE TABLE IF NOT EXISTS swaps (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,7 +39,8 @@ const CREATE_TABLES_SQL = `
     buy_token TEXT NOT NULL,
     sell_amount TEXT NOT NULL,
     status TEXT NOT NULL,
-    timestamp TEXT NOT NULL
+    timestamp TEXT NOT NULL,
+    evidence_cid TEXT
   );
   CREATE TABLE IF NOT EXISTS agent_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,6 +87,9 @@ const MIGRATIONS: { sql: string; ignoreErrors: string[] }[] = [
   { sql: `ALTER TABLE intents ADD COLUMN permissions TEXT`, ignoreErrors: ["duplicate column"] },
   { sql: `ALTER TABLE intents ADD COLUMN delegation_manager TEXT`, ignoreErrors: ["duplicate column"] },
   { sql: `ALTER TABLE intents ADD COLUMN dependencies TEXT`, ignoreErrors: ["duplicate column"] },
+  // Filecoin storage CID columns
+  { sql: `ALTER TABLE intents ADD COLUMN avatar_cid TEXT`, ignoreErrors: ["duplicate column"] },
+  { sql: `ALTER TABLE swaps ADD COLUMN evidence_cid TEXT`, ignoreErrors: ["duplicate column"] },
 ];
 
 let _db: BetterSQLite3Database<typeof schema> | null = null;

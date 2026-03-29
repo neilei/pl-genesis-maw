@@ -114,7 +114,7 @@ export async function evaluateSwap(
 
   // 1. Build & store evidence
   const evidence = buildSwapEvidence(input);
-  const { hash: requestHash, url: requestURI } = storeEvidence(
+  const { hash: requestHash, url: requestURI } = await storeEvidence(
     input.intentId,
     evidence,
   );
@@ -207,7 +207,7 @@ export async function evaluateSwap(
       model: budgetCritical ? FAST_MODEL : REASONING_MODEL,
       evaluatedAt: new Date().toISOString(),
     };
-    const { hash: responseHash, url: responseURI } = storeEvidence(
+    const { hash: responseHash, url: responseURI } = await storeEvidence(
       input.intentId,
       responseDoc,
     );
@@ -248,7 +248,7 @@ export async function evaluateSwap(
     swapTxHash: input.swapTxHash,
     timestamp: new Date().toISOString(),
   };
-  const { hash: feedbackHash, url: feedbackURI } = storeEvidence(
+  const { hash: feedbackHash, url: feedbackURI } = await storeEvidence(
     input.intentId,
     feedbackDoc,
   );
@@ -317,7 +317,7 @@ export async function evaluateSwapFailure(
 
   // 1. Build & store failure evidence
   const evidence = buildSwapFailureEvidence(input);
-  const { hash: requestHash, url: requestURI } = storeEvidence(
+  const { hash: requestHash, url: requestURI } = await storeEvidence(
     input.intentId,
     evidence,
   );
@@ -411,7 +411,7 @@ export async function evaluateSwapFailure(
       model: budgetCritical ? FAST_MODEL : REASONING_MODEL,
       evaluatedAt: new Date().toISOString(),
     };
-    const { hash: responseHash, url: responseURI } = storeEvidence(
+    const { hash: responseHash, url: responseURI } = await storeEvidence(
       input.intentId,
       responseDoc,
     );
@@ -453,7 +453,7 @@ export async function evaluateSwapFailure(
     errorMessage: input.errorMessage,
     timestamp: new Date().toISOString(),
   };
-  const { hash: feedbackHash, url: feedbackURI } = storeEvidence(
+  const { hash: feedbackHash, url: feedbackURI } = await storeEvidence(
     input.intentId,
     feedbackDoc,
   );

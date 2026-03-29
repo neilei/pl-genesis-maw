@@ -32,7 +32,11 @@ vi.mock("../logging/agent-log.js", () => ({ logAction: vi.fn(), logStart: vi.fn(
 vi.mock("../logging/budget.js", () => ({ getBudgetTier: vi.fn().mockReturnValue("normal") }));
 vi.mock("../identity/erc8004.js", () => ({ registerAgent: vi.fn(), giveFeedback: vi.fn() }));
 vi.mock("../identity/judge.js", () => ({ evaluateSwap: vi.fn(), evaluateSwapFailure: vi.fn() }));
-vi.mock("../identity/evidence.js", () => ({ buildSwapEvidence: vi.fn(), storeEvidence: vi.fn() }));
+vi.mock("../identity/evidence.js", () => ({ buildSwapEvidence: vi.fn(), storeEvidence: vi.fn().mockResolvedValue({ hash: "0xmock", filePath: "mock", url: "mock" }) }));
+vi.mock("../filecoin/pin.js", () => ({
+  pinFile: vi.fn().mockResolvedValue({ rootCid: "bafy-mock", pieceCid: "piece-mock", dataSetId: 1, txHash: "0xmock" }),
+  pinBuffer: vi.fn().mockResolvedValue({ rootCid: "bafy-mock", pieceCid: "piece-mock", dataSetId: 1, txHash: "0xmock" }),
+}));
 vi.mock("../logging/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }));

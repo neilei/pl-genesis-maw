@@ -30,6 +30,9 @@ export const intents = sqliteTable("intents", {
 
   // ERC-8004 identity
   agentId: text("agent_id"),
+
+  // Filecoin storage
+  avatarCid: text("avatar_cid"),
 });
 
 export const swaps = sqliteTable("swaps", {
@@ -43,6 +46,9 @@ export const swaps = sqliteTable("swaps", {
   sellAmount: text("sell_amount").notNull(),
   status: text("status").notNull(),
   timestamp: text("timestamp").notNull(),
+
+  // Filecoin storage
+  evidenceCid: text("evidence_cid"),
 });
 
 export const agentLogs = sqliteTable("agent_logs", {

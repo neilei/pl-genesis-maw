@@ -10,6 +10,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { keccak256, toHex, type Hex } from "viem";
+import { pinBuffer } from "../filecoin/pin.js";
+import { logger } from "../logging/logger.js";
 
 const EVIDENCE_BASE_DIR = "data/evidence";
 const EVIDENCE_BASE_URL = "https://api.maw.finance/api/evidence";
@@ -131,13 +133,14 @@ export function buildSwapFailureEvidence(input: SwapFailureEvidenceInput): SwapF
  * Store an evidence document as content-addressed JSON.
  * The file is named by its keccak256 hash, ensuring idempotent writes
  * and providing a verifiable on-chain reference.
+ * Also pins the document to Filecoin (non-fatal if pinning fails).
  *
- * @returns The keccak256 hash, local file path, and public URL
+ * @returns The keccak256 hash, local file path, public URL, and optional Filecoin CID
  */
-export function storeEvidence<T extends object>(
+export async function storeEvidence<T extends object>(
   intentId: string,
   document: T,
-): { hash: Hex; filePath: string; url: string } {
+): Promise<{ hash: Hex; filePath: string; url: string; filecoinCid?: string }> {
   const json = JSON.stringify(document, null, 2);
   const hash = keccak256(toHex(json));
 
@@ -148,5 +151,26 @@ export function storeEvidence<T extends object>(
   writeFileSync(filePath, json, "utf-8");
 
   const url = `${EVIDENCE_BASE_URL}/${intentId}/${hash}`;
-  return { hash, filePath, url };
+
+  // Pin to Filecoin (non-fatal — local storage is the primary copy)
+  let filecoinCid: string | undefined;
+  try {
+    const pinResult = await pinBuffer(
+      Buffer.from(json, "utf-8"),
+      `${hash}.json`,
+      { intentId, artifactType: "evidence" },
+    );
+    filecoinCid = pinResult.rootCid;
+    logger.info(
+      { intentId, hash, filecoinCid },
+      "Evidence pinned to Filecoin",
+    );
+  } catch (err) {
+    logger.warn(
+      { intentId, hash, error: err instanceof Error ? err.message : String(err) },
+      "Failed to pin evidence to Filecoin (continuing with local storage)",
+    );
+  }
+
+  return { hash, filePath, url, filecoinCid };
 }

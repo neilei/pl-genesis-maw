@@ -107,9 +107,47 @@ app.get("/api/intents/:id/avatar.webp", (c) => {
     return c.json({ error: "Avatar not found" }, 404);
   }
   const content = readFileSync(filePath);
+  const intent = repo.getIntent(intentId);
   c.header("Content-Type", "image/webp");
   c.header("Cache-Control", "public, max-age=31536000, immutable");
+  if (intent?.avatarCid) {
+    c.header("X-Filecoin-CID", intent.avatarCid);
+  }
   return c.body(content);
+});
+
+// Filecoin artifacts for an intent (public)
+const FILECOIN_GATEWAY = "https://calibration.w3s.link/ipfs";
+
+app.get("/api/intents/:id/filecoin", (c) => {
+  const intentId = c.req.param("id");
+  if (!/^[a-zA-Z0-9_-]+$/.test(intentId)) {
+    return c.json({ error: "Invalid intent ID" }, 400);
+  }
+  const intent = repo.getIntent(intentId);
+  if (!intent) {
+    return c.json({ error: "Intent not found" }, 404);
+  }
+
+  const swapRecords = repo.getSwapsByIntent(intentId);
+  const evidence = swapRecords
+    .filter((s) => s.evidenceCid)
+    .map((s) => ({
+      swapTxHash: s.txHash,
+      rootCid: s.evidenceCid,
+      gatewayUrl: `${FILECOIN_GATEWAY}/${s.evidenceCid}`,
+    }));
+
+  return c.json({
+    intentId,
+    avatar: intent.avatarCid
+      ? {
+          rootCid: intent.avatarCid,
+          gatewayUrl: `${FILECOIN_GATEWAY}/${intent.avatarCid}`,
+        }
+      : null,
+    evidence,
+  });
 });
 
 // Public intent listing (no auth — lets anyone browse active agents)

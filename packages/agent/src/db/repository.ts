@@ -73,6 +73,18 @@ export class IntentRepository {
     this.db.update(intents).set({ agentId }).where(eq(intents.id, id)).run();
   }
 
+  updateIntentAvatarCid(id: string, avatarCid: string): void {
+    this.db.update(intents).set({ avatarCid }).where(eq(intents.id, id)).run();
+  }
+
+  updateSwapEvidenceCid(intentId: string, txHash: string, evidenceCid: string): void {
+    this.db
+      .update(swaps)
+      .set({ evidenceCid })
+      .where(and(eq(swaps.intentId, intentId), eq(swaps.txHash, txHash)))
+      .run();
+  }
+
   markExpiredIntents(): number {
     const now = Math.floor(Date.now() / 1000);
     const result = this.db

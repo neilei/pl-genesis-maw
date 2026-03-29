@@ -16,12 +16,14 @@ function createTestDb() {
       expires_at INTEGER NOT NULL, permissions TEXT, delegation_manager TEXT,
       dependencies TEXT,
       cycle INTEGER NOT NULL DEFAULT 0, trades_executed INTEGER NOT NULL DEFAULT 0,
-      total_spent_usd REAL NOT NULL DEFAULT 0, last_cycle_at INTEGER, agent_id TEXT
+      total_spent_usd REAL NOT NULL DEFAULT 0, last_cycle_at INTEGER, agent_id TEXT,
+      avatar_cid TEXT
     );
     CREATE TABLE swaps (
       id INTEGER PRIMARY KEY AUTOINCREMENT, intent_id TEXT NOT NULL,
       tx_hash TEXT NOT NULL, sell_token TEXT NOT NULL, buy_token TEXT NOT NULL,
-      sell_amount TEXT NOT NULL, status TEXT NOT NULL, timestamp TEXT NOT NULL
+      sell_amount TEXT NOT NULL, status TEXT NOT NULL, timestamp TEXT NOT NULL,
+      evidence_cid TEXT
     );
   `);
   return { db, sqlite };

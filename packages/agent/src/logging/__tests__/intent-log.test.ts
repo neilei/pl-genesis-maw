@@ -125,7 +125,8 @@ const DB_CREATE_TABLES_SQL = `
     trades_executed INTEGER NOT NULL DEFAULT 0,
     total_spent_usd REAL NOT NULL DEFAULT 0,
     last_cycle_at INTEGER,
-    agent_id TEXT
+    agent_id TEXT,
+    avatar_cid TEXT
   );
   CREATE TABLE swaps (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -135,7 +136,8 @@ const DB_CREATE_TABLES_SQL = `
     buy_token TEXT NOT NULL,
     sell_amount TEXT NOT NULL,
     status TEXT NOT NULL,
-    timestamp TEXT NOT NULL
+    timestamp TEXT NOT NULL,
+    evidence_cid TEXT
   );
   CREATE TABLE agent_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

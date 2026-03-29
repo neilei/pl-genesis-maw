@@ -46,6 +46,14 @@ const envSchema = z.object({
       v && v.startsWith("0x") ? (v as `0x${string}`) : undefined,
     ),
   CMC_PRO_API_KEY: z.string().optional(),
+  FILECOIN_WALLET_PRIVATE_KEY: z
+    .string()
+    .startsWith("0x")
+    .transform((v) => v as `0x${string}`),
+  FILECOIN_RPC: z
+    .string()
+    .url()
+    .default("https://rpc.ankr.com/filecoin_testnet"),
 });
 
 const parsed = envSchema.safeParse(process.env);

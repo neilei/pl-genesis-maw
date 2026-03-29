@@ -46,7 +46,7 @@ Root `package.json` uses pnpm workspaces. Run everything from root:
 | Venice ($11.5K)      | Private LLM, web search, multi-model | `packages/agent/src/venice/`                 |
 | MetaMask ($5K)       | ERC-7715 grant + ERC-7710 redeem     | `packages/agent/src/delegation/`             |
 | Uniswap ($5K)        | Trading API + Permit2                | `packages/agent/src/uniswap/`                |
-| Protocol Labs ($16K) | ERC-8004, agent.json, logs           | `packages/agent/src/identity/`, `agent.json` |
+| Protocol Labs ($16K) | ERC-8004, agent.json, logs, Filecoin | `packages/agent/src/identity/`, `packages/agent/src/filecoin/`, `agent.json` |
 | AgentCash ($1.75K)   | x402 paid data                       | NOT STARTED — on hold                        |
 
 ## Coding Standards

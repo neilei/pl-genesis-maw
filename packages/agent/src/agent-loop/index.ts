@@ -24,6 +24,7 @@ import { generateAgentAvatar, avatarPath } from "../venice/image.js";
 import { existsSync } from "node:fs";
 import { logger } from "../logging/logger.js";
 import { withRetry } from "../utils/retry.js";
+import { pinFile } from "../filecoin/pin.js";
 
 import { gatherMarketData, type MarketData } from "./market-data.js";
 import { executeSwap } from "./swap.js";
@@ -185,6 +186,33 @@ export async function runAgentLoop(config: AgentConfig): Promise<AgentState> {
         tool: "venice-image",
         result: { intentId: iid, model: "nano-banana-2" },
       });
+
+      // Pin avatar to Filecoin (non-fatal)
+      try {
+        config.intentLogger?.log("filecoin_pin_started", {
+          tool: "filecoin-pin",
+          result: { artifactType: "avatar", intentId: iid },
+        });
+        const pinResult = await pinFile(avatarPath(iid), {
+          intentId: iid,
+          artifactType: "avatar",
+        });
+        logger.info({ intentId: iid, rootCid: pinResult.rootCid }, "Avatar pinned to Filecoin");
+        config.intentLogger?.log("filecoin_pin_success", {
+          tool: "filecoin-pin",
+          result: { artifactType: "avatar", rootCid: pinResult.rootCid, pieceCid: pinResult.pieceCid, txHash: pinResult.txHash },
+        });
+        // Persist CID to DB
+        config.repo?.updateIntentAvatarCid(iid, pinResult.rootCid);
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        logger.warn({ intentId: iid, error: errMsg }, "Failed to pin avatar to Filecoin (continuing)");
+        config.intentLogger?.log("filecoin_pin_failed", {
+          tool: "filecoin-pin",
+          error: errMsg,
+          result: { artifactType: "avatar", intentId: iid },
+        });
+      }
     }
   }
 

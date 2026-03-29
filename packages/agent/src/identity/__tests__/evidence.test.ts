@@ -1,6 +1,16 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { buildSwapEvidence, storeEvidence } from "../evidence.js";
+
+// Mock the filecoin pin module so unit tests don't hit the network
+vi.mock("../../filecoin/pin.js", () => ({
+  pinBuffer: vi.fn().mockResolvedValue({
+    rootCid: "bafymock123",
+    pieceCid: "bagamock456",
+    dataSetId: 1,
+    txHash: "0xmocktx",
+  }),
+}));
 
 const TEST_DIR = "data/evidence/test-intent";
 
@@ -43,9 +53,9 @@ describe("evidence", () => {
     expect(evidence.timestamp).toBeDefined();
   });
 
-  it("storeEvidence writes JSON and returns hash", () => {
+  it("storeEvidence writes JSON and returns hash", async () => {
     const doc = { test: "data", agentId: 1 };
-    const { hash, filePath } = storeEvidence("test-intent", doc);
+    const { hash, filePath } = await storeEvidence("test-intent", doc);
 
     expect(hash).toMatch(/^0x[a-f0-9]{64}$/);
     expect(existsSync(filePath)).toBe(true);
@@ -54,10 +64,16 @@ describe("evidence", () => {
     expect(stored).toEqual(doc);
   });
 
-  it("storeEvidence returns consistent hash for same content", () => {
+  it("storeEvidence returns consistent hash for same content", async () => {
     const doc = { test: "deterministic" };
-    const { hash: h1 } = storeEvidence("test-intent", doc);
-    const { hash: h2 } = storeEvidence("test-intent", doc);
+    const { hash: h1 } = await storeEvidence("test-intent", doc);
+    const { hash: h2 } = await storeEvidence("test-intent", doc);
     expect(h1).toBe(h2);
+  });
+
+  it("storeEvidence returns filecoinCid when pinning succeeds", async () => {
+    const doc = { test: "filecoin" };
+    const { filecoinCid } = await storeEvidence("test-intent", doc);
+    expect(filecoinCid).toBe("bafymock123");
   });
 });
