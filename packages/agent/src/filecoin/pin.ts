@@ -8,8 +8,55 @@ import { readFileSync, statSync, writeFileSync, mkdirSync, unlinkSync } from "no
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
+import { privateKeyToAccount } from "viem/accounts";
 import { env } from "../config.js";
 import { logger } from "../logging/logger.js";
+
+// ---------------------------------------------------------------------------
+// Calibration testnet USDFC faucet — auto-claim when wallet balance is low
+// ---------------------------------------------------------------------------
+
+const FAUCET_URL = "https://forest-explorer.chainsafe.dev/api/claim_token";
+const FAUCET_COOLDOWN_MS = 65_000; // 60s rate limit + 5s buffer
+const MIN_USDFC_BALANCE = 1_000_000_000_000_000_000n; // 1 USDFC (18 decimals)
+let lastFaucetClaimMs = 0;
+
+/** Derive our Filecoin wallet's 0x address from the private key. */
+function getFilecoinWalletAddress(): string {
+  return privateKeyToAccount(env.FILECOIN_WALLET_PRIVATE_KEY).address;
+}
+
+/**
+ * Claim 5 tUSDFC from the ChainSafe Calibration faucet if wallet balance is
+ * below threshold and rate limit allows. Best-effort — failures are logged
+ * but never thrown.
+ */
+async function claimUsdfcIfNeeded(walletUsdfcBalance: bigint): Promise<void> {
+  if (walletUsdfcBalance >= MIN_USDFC_BALANCE) return;
+  const now = Date.now();
+  if (now - lastFaucetClaimMs < FAUCET_COOLDOWN_MS) {
+    logger.debug("USDFC faucet: skipping claim (cooldown active)");
+    return;
+  }
+
+  const address = getFilecoinWalletAddress();
+  const url = `${FAUCET_URL}?faucet_info=CalibnetUSDFC&address=${address}`;
+  try {
+    logger.info({ address, balance: walletUsdfcBalance.toString() }, "USDFC balance low — claiming from Calibration faucet");
+    const res = await fetch(url);
+    lastFaucetClaimMs = Date.now();
+    if (res.ok) {
+      const txHash = await res.text();
+      logger.info({ txHash: txHash.replace(/"/g, "") }, "USDFC faucet claim successful (5 tUSDFC)");
+    } else {
+      const body = await res.text();
+      logger.warn({ status: res.status, body }, "USDFC faucet claim failed");
+    }
+  } catch (err) {
+    lastFaucetClaimMs = Date.now();
+    logger.warn({ err }, "USDFC faucet claim error");
+  }
+}
 
 export interface PinResult {
   rootCid: string;
@@ -77,15 +124,21 @@ async function uploadPath(filePath: string): Promise<PinResult> {
 
   const fileSize = statSync(filePath).size;
 
+  // Check wallet USDFC balance and auto-claim from faucet if low.
+  type SynapseParam = Parameters<typeof fp.executeUpload>[0];
+  const status = await payments.getPaymentStatus(synapse as SynapseParam);
+  await claimUsdfcIfNeeded(status.walletUsdfcBalance);
+
   // Auto-fund: plan and execute USDFC deposit into FilecoinPay contract.
   // checkUploadReadiness alone fails when USDFC is in the wallet but not
   // yet deposited — planFilecoinPayFunding + executeFilecoinPayFunding
   // handle both allowance setup and deposit in one shot.
-  type SynapseParam = Parameters<typeof fp.executeUpload>[0];
+  // targetRunwayDays: 0 = "fund this upload only" — deposits just enough
+  // for the piece's lockup (~0.06 USDFC floor) instead of 30-day runway.
   type PlanOpts = Parameters<typeof payments.planFilecoinPayFunding>[0];
   const planResult = await payments.planFilecoinPayFunding({
     synapse,
-    targetRunwayDays: 30,
+    targetRunwayDays: 0,
     pieceSizeBytes: fileSize,
     ensureAllowances: true,
     allowWithdraw: false,

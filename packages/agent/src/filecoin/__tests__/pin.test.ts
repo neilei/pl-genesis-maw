@@ -9,6 +9,9 @@ vi.mock("../../config.js", () => ({
 vi.mock("../../logging/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
+vi.mock("viem/accounts", () => ({
+  privateKeyToAccount: vi.fn().mockReturnValue({ address: "0x4F12c98c004Ff28aA1e3C230946A89430F5889F0" }),
+}));
 
 // Mock filecoin-pin to avoid network calls
 const mockInitializeSynapse = vi.fn().mockResolvedValue({ mock: true });
@@ -40,7 +43,13 @@ vi.mock("filecoin-pin/core/synapse", () => ({
   calibration: { id: 314159, name: "calibration" },
 }));
 
-// Mock filecoin-pin/core/payments — planFilecoinPayFunding + executeFilecoinPayFunding
+// Mock filecoin-pin/core/payments — getPaymentStatus + planFilecoinPayFunding + executeFilecoinPayFunding
+const mockGetPaymentStatus = vi.fn().mockResolvedValue({
+  walletUsdfcBalance: 10_000_000_000_000_000_000n, // 10 USDFC — above MIN threshold
+  filecoinPayBalance: 0n,
+  filBalance: 100_000_000_000_000_000n,
+  currentAllowances: { rateUsed: 0n, lockupUsed: 0n },
+});
 const mockPlanFilecoinPayFunding = vi.fn().mockResolvedValue({
   plan: { delta: 0n, projected: { depositedBalance: 100n, runway: { days: 30, hours: 0 } } },
   status: { walletUsdfcBalance: 100n },
@@ -54,6 +63,7 @@ const mockExecuteFilecoinPayFunding = vi.fn().mockResolvedValue({
   newRunwayHours: 0,
 });
 vi.mock("filecoin-pin/core/payments", () => ({
+  getPaymentStatus: mockGetPaymentStatus,
   planFilecoinPayFunding: mockPlanFilecoinPayFunding,
   executeFilecoinPayFunding: mockExecuteFilecoinPayFunding,
 }));
@@ -75,9 +85,16 @@ beforeEach(() => {
   mockInitializeSynapse.mockClear();
   mockCreateCarFromPath.mockClear();
   mockExecuteUpload.mockClear();
+  mockGetPaymentStatus.mockClear();
   mockPlanFilecoinPayFunding.mockClear();
   mockExecuteFilecoinPayFunding.mockClear();
-  // Restore default: no deposit needed
+  // Restore defaults
+  mockGetPaymentStatus.mockResolvedValue({
+    walletUsdfcBalance: 10_000_000_000_000_000_000n,
+    filecoinPayBalance: 0n,
+    filBalance: 100_000_000_000_000_000n,
+    currentAllowances: { rateUsed: 0n, lockupUsed: 0n },
+  });
   mockPlanFilecoinPayFunding.mockResolvedValue({
     plan: { delta: 0n, projected: { depositedBalance: 100n, runway: { days: 30, hours: 0 } } },
     status: { walletUsdfcBalance: 100n },
@@ -141,5 +158,30 @@ describe("Filecoin Pin", () => {
     await expect(
       pinFile("/tmp/test.webp", { intentId: "test", artifactType: "avatar" }),
     ).rejects.toThrow("Insufficient USDFC in wallet");
+  });
+
+  it("calls faucet when USDFC balance is below threshold", async () => {
+    // Set wallet balance below 1 USDFC threshold
+    mockGetPaymentStatus.mockResolvedValue({
+      walletUsdfcBalance: 100_000_000_000_000_000n, // 0.1 USDFC
+      filecoinPayBalance: 0n,
+      filBalance: 100_000_000_000_000_000n,
+      currentAllowances: { rateUsed: 0n, lockupUsed: 0n },
+    });
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('"0xfaucet-tx-hash"'),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const { pinFile } = await import("../pin.js");
+    await pinFile("/tmp/test.webp", { intentId: "test", artifactType: "avatar" });
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    expect(mockFetch.mock.calls[0][0]).toContain("CalibnetUSDFC");
+    expect(mockFetch.mock.calls[0][0]).toContain("0x4F12c98c004Ff28aA1e3C230946A89430F5889F0");
+
+    vi.unstubAllGlobals();
   });
 });
