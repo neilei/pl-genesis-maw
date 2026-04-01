@@ -102,7 +102,7 @@ export class DefaultAgentWorker implements AgentWorker {
       intent: parsed,
       agentKey: env.AGENT_PRIVATE_KEY,
       chainId: 11155111,
-      intervalMs: 300_000,
+      intervalMs: 600_000,
       permissions,
       delegationManager: intent.delegationManager,
       dependencies,
